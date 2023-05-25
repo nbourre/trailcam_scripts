@@ -46,17 +46,19 @@ def movement_scan(filename, threshold, display_output=False):
     return False
 
 
-def scan_folder(folder_path):
+def scan_folder(folder_path, extensions='.mp4,.AVI', display_output=False, threshold=1000):
+    extensions = tuple(extensions.split(','))
+
     with open('results.csv', 'w', newline='') as file:
         writer = csv.writer(file)
         writer.writerow(["Filename", "Movement Detected"])
         for filename in os.listdir(folder_path):
-            if filename.endswith(".mp4") or filename.endswith(".AVI"): 
+            if filename.endswith(extensions): 
                 filepath = os.path.join(folder_path, filename)
-                movement_detected = movement_scan(filepath, 1000, True) # example threshold
+                movement_detected = movement_scan(filepath, threshold, display_output) # example threshold
                 writer.writerow([filepath, movement_detected])
 
-def play_videos_with_motion(folder_path, motion_file='motion_videos.csv', last_played_file='last_played.txt'):
+def play_videos_with_motion(folder_path='', motion_file='motion_videos.csv', last_played_file='last_played.txt'):
     try:
         with open(last_played_file, 'r') as file:
             last_played = file.readline().strip()
@@ -104,9 +106,9 @@ def play_videos_with_motion(folder_path, motion_file='motion_videos.csv', last_p
     cv2.destroyAllWindows()
 
 def main():
-    # folder_name = "D:\\temp\\100DSCIM"
-    # scan_folder(folder_name)
-    play_videos_with_motion('D:\\temp\\100DSCIM', 'results.csv')
+    folder_name = "D:\\temp\\100DSCIM"
+    scan_folder(folder_name)
+    play_videos_with_motion('', 'results.csv')
 
 if __name__ == "__main__":
     main()
