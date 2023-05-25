@@ -3,6 +3,7 @@ import csv
 import os
 import numpy as np
 
+# Scan a video for motion and return True if motion is detected
 def movement_scan(filename, threshold, display_output=False):
     print ("Scanning file: " + filename)
     cap = cv2.VideoCapture(filename)
@@ -45,7 +46,7 @@ def movement_scan(filename, threshold, display_output=False):
     cv2.destroyAllWindows()
     return False
 
-
+# Scan a folder for motion in videos and write the results to a CSV file
 def scan_folder(folder_path, extensions='.mp4,.AVI', display_output=False, threshold=1000):
     extensions = tuple(extensions.split(','))
 
@@ -58,6 +59,10 @@ def scan_folder(folder_path, extensions='.mp4,.AVI', display_output=False, thres
                 movement_detected = movement_scan(filepath, threshold, display_output) # example threshold
                 writer.writerow([filepath, movement_detected])
 
+# Play videos with motion read from a CSV file
+# The CSV file should have two columns: filename and motion_detected
+# The user can press 'q' to quit or 'n' to skip to the next video
+# The last played video is saved to a text file
 def play_videos_with_motion(folder_path='', motion_file='motion_videos.csv', last_played_file='last_played.txt'):
     try:
         with open(last_played_file, 'r') as file:
