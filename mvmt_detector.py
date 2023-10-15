@@ -93,6 +93,8 @@ def play_videos_with_motion(folder_path='', motion_file='motion_videos.csv', las
                     if not ret:
                         break
 
+                    # Display filename in the upper right corner
+                    cv2.putText(frame, filename, (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2, cv2.LINE_AA)
                     cv2.imshow('Motion Video', frame)
 
                     key = cv2.waitKey(1)
@@ -105,6 +107,10 @@ def play_videos_with_motion(folder_path='', motion_file='motion_videos.csv', las
                     elif key & 0xFF == ord('n'):
                         # Skip to next video
                         break
+                    elif key & 0xFF == ord('p'):
+                        # Pause
+                        cv2.waitKey(0)
+
 
                 cap.release()
 
@@ -112,7 +118,28 @@ def play_videos_with_motion(folder_path='', motion_file='motion_videos.csv', las
 
 def main():
     folder_name = "D:\\temp\\100DSCIM"
-    scan_folder(folder_name)
+
+    while True:
+        print("\nMenu:")
+        print("1. Scan folder for motion videos")
+        print("2. Play videos with motion")
+        print("3. Quit")
+
+        choice = input("Enter your choice (1/2/3): ").strip()
+
+        if choice == '1':
+            scan_folder(folder_name)
+        elif choice == '2':
+            print ("Press 'q' to quit or 'n' to skip to the next video")
+            print ("Press 'p' to pause the video")
+            print ("The last played video is saved to a text file")
+            play_videos_with_motion('', 'results.csv')
+        elif choice == '3':
+            print("Goodbye!")
+            break
+        else:
+            print("Invalid choice. Please enter 1, 2, or 3.")
+    #scan_folder(folder_name)
     play_videos_with_motion('', 'results.csv')
 
 if __name__ == "__main__":
