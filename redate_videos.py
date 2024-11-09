@@ -87,11 +87,18 @@ def change_video_creation_date_by_offset(filename, offset):
         creation_date_str = tags[0]['File:FileCreateDate']
         creation_date_format = '%Y:%m:%d %H:%M:%S%z'
         creation_date = datetime.strptime(creation_date_str, creation_date_format)
+        
+        # Apply the offset
         new_creation_date = creation_date + timedelta(days=offset)
         new_creation_date_str = new_creation_date.strftime('%Y:%m:%d %H:%M:%S%z')
+        
+        # Set the new creation date using ExifTool
         new_date = {'File:FileCreateDate': new_creation_date_str}
         et.set_tags(filename, new_date)
-        os.utime(filename, new_creation_date)
+        
+        # Update the OS-level file times
+        new_creation_timestamp = new_creation_date.timestamp()
+        os.utime(filename, (new_creation_timestamp, new_creation_timestamp))
 
 def change_videos_creation_date_in_folder(folder_path, offset):
     """
@@ -101,7 +108,7 @@ def change_videos_creation_date_in_folder(folder_path, offset):
     :param offset: The offset in days to adjust the creation date, or a specific datetime.
     """
     for filename in os.listdir(folder_path):
-        if filename.endswith('.mp4') or filename.endswith('.mov') or filename.endswith('.avi'):
+        if filename.lower().endswith(('.mp4', '.mov', '.avi')):
             full_path = os.path.join(folder_path, filename)
             if isinstance(offset, datetime):
                 change_video_creation_date_by_date(full_path, offset)
@@ -261,17 +268,22 @@ def main():
     """
     Main function to execute the batch date change process.
     """
+    folder = r'D:\temp\trail_cam\DCIM_240919_241109\100MEDIA\keep'
+    target_date = datetime(2024, 9, 19)
+    today = datetime.now()
+    offset = (target_date - today).days
+    
     # batch_date_change()
     # folder = r'D:\temp\DCIM\100DSCIM\converted'
     # offset = datetime.now()
-    # change_videos_creation_date_in_folder(folder, offset)
+    change_videos_creation_date_in_folder(folder, offset)
     
     # folder = r'D:\photos\drone\2023_classique_canoe\video_converted'
     # redate_videos_in_folder_by_filename(folder)
-    original_folder = r'D:\photos\drone\2024_europe\100MEDIA'
-    converted_folder = original_folder + r'\video_converted'
+    # original_folder = r'D:\photos\drone\2024_europe\100MEDIA'
+    # converted_folder = original_folder + r'\video_converted'
     
-    match_and_update_dates(original_folder, converted_folder)
+    # match_and_update_dates(original_folder, converted_folder)
 
 if __name__ == "__main__":
     main()

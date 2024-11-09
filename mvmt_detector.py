@@ -125,7 +125,7 @@ def play_videos_with_motion(folder_path='', motion_file='motion_videos.csv', las
     cv2.destroyAllWindows()
 
 def main():
-    folder_name = "D:\\temp\\DCIM\\100DSCIM"
+    folder_name = "D:\\temp\\trail_cam\\100DSCIM_240915_240919\\100DSCIM"
 
     while True:
         print("\nMenu:")
