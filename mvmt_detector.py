@@ -17,6 +17,15 @@ def movement_scan(filename, threshold, display_output=False):
         # Apply histogram equalization to increase contrast
         frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
         frame = cv2.equalizeHist(frame)
+
+        # Apply ROI mask
+        try:
+            with open("roi.txt", "r") as f:
+                x, y, w, h = map(int, f.read().strip().split(','))
+            frame = frame[y:y+h, x:x+w]
+        except FileNotFoundError:
+            pass  # Process full frame if no ROI file
+
         
         if display_output:
             cv2.imshow('Motion Detection', frame)
@@ -101,10 +110,12 @@ def play_videos_with_motion(folder_path='', motion_file='motion_videos.csv', las
                     ret, frame = cap.read()
                     if not ret:
                         break
+                    
+                    frame_small = cv2.resize(frame, None, fx=0.5, fy=0.5, interpolation=cv2.INTER_AREA)
 
                     # Display filename in the upper right corner
-                    cv2.putText(frame, filename, (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2, cv2.LINE_AA)
-                    cv2.imshow('Motion Video', frame)
+                    cv2.putText(frame_small, filename, (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2, cv2.LINE_AA)
+                    cv2.imshow('Motion Video', frame_small)
 
                     key = cv2.waitKey(1)
                     if key & 0xFF == ord('q'):
@@ -124,31 +135,88 @@ def play_videos_with_motion(folder_path='', motion_file='motion_videos.csv', las
 
     cv2.destroyAllWindows()
 
+def set_roi(folder_path, roi_file="roi.txt"):
+    import cv2
+    import os
+
+    # Get first video in folder
+    for fname in os.listdir(folder_path):
+        if fname.lower().endswith(('.mp4', '.avi', '.mov')):
+            video_path = os.path.join(folder_path, fname)
+            break
+    else:
+        print("No video found in folder.")
+        return
+
+    cap = cv2.VideoCapture(video_path)
+    ret, frame = cap.read()
+    cap.release()
+    if not ret:
+        print("Failed to read video.")
+        return
+
+    h, w = frame.shape[:2]
+    roi = [0, 0, w, h]  # x, y, width, height
+
+    print("Controls:")
+    print("WASD - move ROI")
+    print("IJKL - resize ROI")
+    print("R - reset")
+    print("Q - save and quit")
+
+    while True:
+        display_frame = frame.copy()
+        x, y, rw, rh = roi
+        cv2.rectangle(display_frame, (x, y), (x+rw, y+rh), (0, 255, 0), 2)
+        cv2.putText(display_frame, "Use WASD to move, IJKL to resize, Q to save", (10, 20),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
+        cv2.imshow("Set ROI", display_frame)
+
+        key = cv2.waitKey(0) & 0xFF
+        if key == ord('w'): roi[1] = max(0, roi[1] - 10)
+        elif key == ord('s'): roi[1] = min(h - roi[3], roi[1] + 10)
+        elif key == ord('a'): roi[0] = max(0, roi[0] - 10)
+        elif key == ord('d'): roi[0] = min(w - roi[2], roi[0] + 10)
+        elif key == ord('i'): roi[3] = min(h - roi[1], roi[3] + 10)
+        elif key == ord('k'): roi[3] = max(20, roi[3] - 10)
+        elif key == ord('j'): roi[2] = max(20, roi[2] - 10)
+        elif key == ord('l'): roi[2] = min(w - roi[0], roi[2] + 10)
+        elif key == ord('r'): roi = [0, 0, w, h]
+        elif key == ord('q'):
+            with open(roi_file, 'w') as f:
+                f.write(','.join(map(str, roi)))
+            print(f"ROI saved to {roi_file}: {roi}")
+            break
+
+    cv2.destroyAllWindows()
+
+
 def main():
-    folder_name = "D:\\temp\\trail_cam\\100DSCIM_240915_240919\\100DSCIM"
+    folder_name = "D:\\temp\\trail_cam\\DCIM_241110_250404\\100MEDIA"
 
     while True:
         print("\nMenu:")
-        print("1. Scan folder for motion videos")
-        print("2. Play videos with motion")
-        print("3. Quit")
+        print("1. Set Region of Interest")
+        print("2. Scan folder for motion videos")
+        print("3. Play videos with motion")
+        print("4. Quit")
 
-        choice = input("Enter your choice (1/2/3): ").strip()
+        choice = input("Enter your choice (1/2/3/4): ").strip()
 
         if choice == '1':
-            scan_folder(folder_name, display_output=True)
+            set_roi(folder_name)
         elif choice == '2':
+            scan_folder(folder_name, display_output=False)
+        elif choice == '3':
             print ("Press 'q' to quit or 'n' to skip to the next video")
             print ("Press 'p' to pause the video")
             print ("The last played video is saved to a text file")
             play_videos_with_motion('', 'results.csv')
-        elif choice == '3':
+        elif choice == '4':
             print("Goodbye!")
             break
         else:
-            print("Invalid choice. Please enter 1, 2, or 3.")
-    #scan_folder(folder_name)
-    play_videos_with_motion('', 'results.csv')
+            print("Invalid choice. Please enter 1, 2, 3 or 4.")
 
 if __name__ == "__main__":
     main()
