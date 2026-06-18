@@ -1,0 +1,16 @@
+{
+  "start_dir": "D:\\trail_cam",
+  "depth": 3,
+  "frame_rate": 6,
+  "max_workers": 4,
+  "ffmpeg_threads": 4,
+  "output_resolution": "1920x1080",
+  "ffmpeg_path": "ffmpeg",
+  "write_file_list": true,
+  "file_list_name": "jpg_files.txt",
+  "dry_run": false,
+  "dry_run_details": false,
+  "video_action": "extract",
+  "frames_per_video": 3,
+  "action": "timelapse"
+}

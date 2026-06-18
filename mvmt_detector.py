@@ -2,6 +2,18 @@ import cv2
 import csv
 import os
 import numpy as np
+from ultralytics import YOLO
+
+DEFAULT_RESULTS_CSV = "results.csv"
+DEFAULT_ANIMAL_CSV = "animal_results.csv"
+DEFAULT_ROI_FILE = "roi.txt"
+
+ANIMAL_LABELS = {'cat', 'dog', 'bird', 'crow', 'squirrel', 'turkey', 'bear', 'deer', 'rabbit', 'fox', 'wolf', 'elk', 'moose', 'coyote', 'bobcat', 'raccoon', 'opossum', 'skunk'}
+
+def get_video_files(folder, extensions=('.mp4', '.avi', '.mov')):
+    results = [os.path.join(folder, f) for f in os.listdir(folder) if f.lower().endswith(extensions)]
+    return results
+
 
 # Scan a video for motion and return True if motion is detected
 def movement_scan(filename, threshold, display_output=False):
@@ -20,7 +32,7 @@ def movement_scan(filename, threshold, display_output=False):
 
         # Apply ROI mask
         try:
-            with open("roi.txt", "r") as f:
+            with open(DEFAULT_ROI_FILE, "r") as f:
                 x, y, w, h = map(int, f.read().strip().split(','))
             frame = frame[y:y+h, x:x+w]
         except FileNotFoundError:
@@ -60,19 +72,98 @@ def movement_scan(filename, threshold, display_output=False):
     cv2.destroyAllWindows()
     return False
 
+# Load the YOLOv8 nano model (fastest)
+yolo_model = YOLO("yolov8n.pt")  # First run will auto-download the model
+yolo_model.to('cuda')  # Use GPU if available
+
+def test_gpu():
+    import torch
+    from ultralytics import YOLO
+
+    print("Checking PyTorc and YOLO GPU availability...")
+    print(f"PyTorch CUDA available: {torch.cuda.is_available()}")
+
+    try:
+        model = YOLO("yolov8n.pt")
+        model.to("cuda")
+        print("✅ YOLO model successfully moved to GPU.")
+    except Exception as e:
+        print("❌ Failed to move YOLO to GPU.")
+        print(f"Error: {e}")
+
+# Detect animals in one video and return True if any are found
+def detect_animals_yolo(filename, display_output=False, conf_threshold=0.25):
+    print(f"Scanning file for animals: {filename}")
+    cap = cv2.VideoCapture(filename)
+
+    if not cap.isOpened():
+        print("Failed to open video.")
+        return False
+
+    while True:
+        ret, frame = cap.read()
+        if not ret:
+            break
+
+        # Resize for faster processing (50%)
+        frame_small = cv2.resize(frame, None, fx=0.5, fy=0.5, interpolation=cv2.INTER_AREA)
+
+        # Run YOLO inference on the frame
+        results = yolo_model.predict(source=frame_small, conf=conf_threshold, verbose=False)
+
+        # Filter results to only animal classes
+        for r in results:
+            for c in r.boxes.cls:
+                label = yolo_model.names[int(c)]
+                if label in ANIMAL_LABELS:
+                    if display_output:
+                        cv2.imshow("Animal Detection", frame_small)
+                        if cv2.waitKey(1) & 0xFF == ord('q'):
+                            break
+                    cap.release()
+                    cv2.destroyAllWindows()
+                    return True
+
+    cap.release()
+    cv2.destroyAllWindows()
+    return False
+
+def scan_folder_for_animals(results_csv=DEFAULT_RESULTS_CSV, output_csv='animal_results.csv', display_output=False):
+    if not os.path.exists(results_csv):
+        print(f"File not found: {results_csv}")
+        return
+
+    with open(results_csv, 'r', newline='') as infile, open(output_csv, 'w', newline='') as outfile:
+        reader = csv.reader(infile)
+        writer = csv.writer(outfile)
+
+        header = next(reader)
+        if len(header) < 2:
+            print("Invalid header in results.csv")
+            return
+
+        writer.writerow(["Filename", "Movement Detected", "Animal Detected"])
+
+        for row in reader:
+            if len(row) < 2:
+                continue
+            filepath, movement_detected = row[0], row[1]
+            if movement_detected.lower() == 'true':
+                animal_detected = detect_animals_yolo(filepath, display_output)
+            else:
+                animal_detected = False
+            writer.writerow([filepath, movement_detected, animal_detected])
 
 # Scan a folder for motion in videos and write the results to a CSV file
-def scan_folder(folder_path, extensions='.mp4,.AVI', display_output=False, threshold=1000):
+def scan_folder(folder_path, extensions='.mp4', display_output=False, threshold=1000):
     extensions = tuple(extensions.split(','))
 
-    with open('results.csv', 'w', newline='') as file:
+    with open(DEFAULT_RESULTS_CSV, 'w', newline='') as file:
         writer = csv.writer(file)
         writer.writerow(["Filename", "Movement Detected"])
-        for filename in os.listdir(folder_path):
-            if filename.endswith(extensions): 
-                filepath = os.path.join(folder_path, filename)
-                movement_detected = movement_scan(filepath, threshold, display_output) # example threshold
-                writer.writerow([filepath, movement_detected])
+        for filepath in get_video_files(folder_path, extensions):
+            movement_detected = movement_scan(filepath, threshold, display_output) # example threshold
+            writer.writerow([filepath, movement_detected])
 
 # Play videos with motion read from a CSV file
 # The CSV file should have two columns: filename and motion_detected
@@ -135,7 +226,7 @@ def play_videos_with_motion(folder_path='', motion_file='motion_videos.csv', las
 
     cv2.destroyAllWindows()
 
-def set_roi(folder_path, roi_file="roi.txt"):
+def set_roi(folder_path, roi_file=DEFAULT_ROI_FILE):
     import cv2
     import os
 
@@ -192,14 +283,16 @@ def set_roi(folder_path, roi_file="roi.txt"):
 
 
 def main():
-    folder_name = "D:\\temp\\trail_cam\\DCIM_241110_250404\\100MEDIA"
+    folder_name = "D:\\temp\\trail_cam\\DCIM_250621_250714\\100MEDIA"
 
     while True:
         print("\nMenu:")
         print("1. Set Region of Interest")
         print("2. Scan folder for motion videos")
-        print("3. Play videos with motion")
-        print("4. Quit")
+        print("3. Scan folder for animal detection")
+        print("4. Play videos with motion")
+        print("5. Test GPU")
+        print("6. Quit")
 
         choice = input("Enter your choice (1/2/3/4): ").strip()
 
@@ -207,14 +300,19 @@ def main():
             set_roi(folder_name)
         elif choice == '2':
             scan_folder(folder_name, display_output=False)
-        elif choice == '3':
+        elif choice == '4':
             print ("Press 'q' to quit or 'n' to skip to the next video")
             print ("Press 'p' to pause the video")
             print ("The last played video is saved to a text file")
-            play_videos_with_motion('', 'results.csv')
-        elif choice == '4':
+            play_videos_with_motion('', DEFAULT_RESULTS_CSV)
+        elif choice == '3':
+            scan_folder_for_animals(DEFAULT_RESULTS_CSV, DEFAULT_ANIMAL_CSV, display_output=True)
+        elif choice == '5':
+            test_gpu()
+        elif choice == '6':
             print("Goodbye!")
             break
+
         else:
             print("Invalid choice. Please enter 1, 2, 3 or 4.")
 
